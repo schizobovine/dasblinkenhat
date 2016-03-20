@@ -1,0 +1,9 @@
+[submodule "firmware/lib/Adafruit_NeoPixel"]
+	path = firmware/lib/Adafruit_NeoPixel
+	url = git@github.com:schizobovine/Adafruit_NeoPixel.git
+[submodule "firmware/lib/Arduino-Makefile"]
+	path = firmware/lib/Arduino-Makefile
+	url = git@github.com:sudar/Arduino-Makefile.git
+[submodule "firmware/lib/Bounce2"]
+	path = firmware/lib/Bounce2
+	url = git@github.com:schizobovine/Bounce2.git
