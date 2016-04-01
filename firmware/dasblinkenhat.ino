@@ -1,18 +1,21 @@
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 
-const byte LED_PIN = 4;
-const byte BUTT_PIN = 3;
-const byte DATA_PIN = 2;
+const byte DATA_PIN = 1;
+const byte BUTT_PIN = 2;
+const byte TRIM_PIN = A3;
 
 const int BUTT_DEBOUNCE_MS = 50; 
 Bounce butt;
 
-const int NUM_PIXELS = 100; //max=103
+const uint8_t NUM_PIXELS = 100;         //max=103
+const uint8_t DEFAULT_BRIGHTNESS = 255; //0-255
+const uint16_t DEFAULT_DELAY_MS = 5;    //milliseconds
+
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_PIXELS, DATA_PIN, NEO_GRB + NEO_KHZ800);
 uint8_t offset = 0;
-uint8_t bright = 255;
-uint16_t delay_ms = 5;
+uint8_t bright = DEFAULT_BRIGHTNESS;
+uint16_t delay_ms = DEFAULT_DELAY_MS;
 
 typedef enum {
   MODE_CYCLE,
@@ -20,6 +23,10 @@ typedef enum {
 } mode_t;
 
 mode_t mode = MODE_CYCLE;
+
+////////////////////////////////////////////////////////////////////////
+// COLOR HELPERS
+////////////////////////////////////////////////////////////////////////
 
 //
 // Maps 0-255 to RGB values, red -> green -> blue -> red (cycles)
@@ -65,6 +72,10 @@ void rainbow_pulse() {
   offset++;
 }
 
+////////////////////////////////////////////////////////////////////////
+// ERROR HANDLER
+////////////////////////////////////////////////////////////////////////
+
 //
 // Die an honorable death, and hopefully an error message (?)
 //
@@ -91,12 +102,19 @@ void seppuku(uint8_t error_code=0) {
 }
 
 ////////////////////////////////////////////////////////////////////////
+// MISC
+////////////////////////////////////////////////////////////////////////
+
+uint8_t get_brightness_trim() {
+  uint16_t reading = analogRead(TRIM_PIN);
+  return map(reading, 0, 1023, 0, 255);
+}
+
+////////////////////////////////////////////////////////////////////////
 // SETUP - done once
 ////////////////////////////////////////////////////////////////////////
 
 void setup() {
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
   butt.attach(BUTT_PIN, INPUT_PULLUP, BUTT_DEBOUNCE_MS);
   strip.begin();
   strip.show();
@@ -124,6 +142,12 @@ void loop() {
         break;
     }
 
+  }
+
+  // Check current brightness setting & (re)set if needed
+  bright = get_brightness_trim();
+  if (bright != strip.getBrightness()) {
+    strip.setBrightness(bright);
   }
 
   // Dispatch color setting by mode
