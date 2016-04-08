@@ -1,29 +1,62 @@
+/*
+ * dashblinkenhat.ino
+ *
+ * Author: Sean Caulfield <sean@yak.net>
+ * License: GPLv2.0
+ *
+ */
+
+#include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 
-#define DATA_PIN 1
-#define BUTT_PIN 2
-#define TRIM_PIN A3
+#define DEBUG 0
+#define SERIAL_BAUD 9600
+
+#ifdef DEBUG
+#define DPRINT(...) Serial.print(__VA_ARGS__)
+#define DPRINTLN(...) Serial.println(__VA_ARGS__)
+#else
+#define DPRINT(...)
+#define DPRINTLN(...)
+#endif
+
+#define BUTT_PIN 5
+#define DATA_PIN 6
+#define BRIGHT_TRIM_PIN A4
+#define DELAY_TRIM_PIN A5
+#define BATT_DIV_PIN 9
 
 #define BUTT_DEBOUNCE_MS 50
 
 Bounce butt;
 
-#define NUM_PIXELS 90          //max=103 (nope, <100 now)
+#define NUM_PIXELS 120         //max=103 (nope, <100 now)
 #define DEFAULT_BRIGHTNESS 255 //0-255
-#define DELAY_MS 5             //how long to pause between loops
+
+#define DELAY_MIN 5
+#define DELAY_MAX 50
+#define DELAY_DEFAULT DELAY_MAX
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_PIXELS, DATA_PIN, NEO_GRB + NEO_KHZ800);
+
 uint8_t offset = 0;
 uint8_t bright = DEFAULT_BRIGHTNESS;
+
+uint16_t delay_ms = DELAY_DEFAULT;
+uint16_t last_delay_ms = DELAY_DEFAULT;
+
+uint16_t battery_level = 0;
+uint16_t last_battery_level = 0;
 
 typedef enum {
   MODE_CYCLE,
   MODE_PULSE,
   MODE_WATERFALL,
+  MODE_OFF,
 } mode_t;
 
-mode_t mode = MODE_CYCLE;
+mode_t mode = MODE_WATERFALL;
 
 ////////////////////////////////////////////////////////////////////////
 // COLOR HELPERS
@@ -94,6 +127,15 @@ void rainbow_waterfall() {
 
 }
 
+//
+// Turns entire strip off
+//
+void strip_off() {
+  for (uint16_t i=0; i<NUM_PIXELS; i++) {
+    strip.setPixelColor(i, 0, 0, 0);
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////
 // ERROR HANDLER
 ////////////////////////////////////////////////////////////////////////
@@ -124,12 +166,39 @@ void seppuku(uint8_t error_code=0) {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// MISC
+// ANALOG HELPERS
 ////////////////////////////////////////////////////////////////////////
 
+//
+// Get battery level (0-1023 through voltage divider)
+//
+uint16_t get_batt_level() {
+  uint16_t reading = analogRead(BATT_DIV_PIN);
+  return reading;
+  //return reading * 2.0 * 3.3 / 1024;
+}
+
+//
+// Get battery voltage
+//
+float get_batt_voltage(uint16_t level) {
+  return level * 2.0 * 3.3 / 1024;
+}
+
+//
+// Get brightness level from brightness trimmer setting
+//
 uint8_t get_brightness_trim() {
-  uint16_t reading = analogRead(TRIM_PIN);
+  uint16_t reading = analogRead(BRIGHT_TRIM_PIN);
   return map(reading, 0, 1023, 0, 255);
+}
+
+//
+// Get cycle delay time based on delay trimmer setting
+//
+uint16_t get_delay_trim() {
+  uint16_t reading = analogRead(DELAY_TRIM_PIN);
+  return map(reading, 0, 1023, DELAY_MIN, DELAY_MAX);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -137,9 +206,21 @@ uint8_t get_brightness_trim() {
 ////////////////////////////////////////////////////////////////////////
 
 void setup() {
+
   butt.attach(BUTT_PIN, INPUT_PULLUP, BUTT_DEBOUNCE_MS);
+
   strip.begin();
   strip.show();
+
+#if DEBUG
+  Serial.begin(SERIAL_BAUD);
+  while (!Serial)
+    ;
+  Serial.println("HAI");
+  pinMode(13, OUTPUT);
+  digitalWrite(13, HIGH);
+#endif
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -152,15 +233,23 @@ void loop() {
   if (butt.update() && butt.fell()) {
 
     // Advance to the next mode
+    DPRINT(F("Mode switch to "));
     switch (mode) {
       case MODE_CYCLE:
         mode = MODE_PULSE;
+        DPRINTLN(F("MODE_PULSE"));
         break;
       case MODE_PULSE:
         mode = MODE_WATERFALL;
+        DPRINTLN(F("MODE_WATERFALL"));
         break;
       case MODE_WATERFALL:
+        mode = MODE_OFF;
+        DPRINTLN(F("MODE_OFF"));
+        break;
+      case MODE_OFF:
         mode = MODE_CYCLE;
+        DPRINTLN(F("MODE_CYCLE"));
         break;
       default: //wat
         seppuku();
@@ -173,6 +262,26 @@ void loop() {
   bright = get_brightness_trim();
   if (bright != strip.getBrightness()) {
     strip.setBrightness(bright);
+    DPRINT(F("Set brightness to "));
+    DPRINTLN(bright);
+  }
+
+  // Check delay setting & (re)set if needed
+  delay_ms = get_delay_trim();
+  if (delay_ms != last_delay_ms) {
+    last_delay_ms = delay_ms;
+    DPRINT(F("Set delay to "));
+    DPRINTLN(delay_ms);
+  }
+
+  // Check battery level
+  battery_level = get_batt_level();
+  if (battery_level != last_battery_level) {
+    last_battery_level = battery_level;
+    DPRINT(F("Battery level is "));
+    DPRINT(battery_level);
+    DPRINT(F(" "));
+    DPRINTLN(get_batt_voltage(battery_level));
   }
 
   // Dispatch color setting by mode
@@ -183,6 +292,12 @@ void loop() {
     case MODE_PULSE:
       rainbow_pulse();
       break;
+    case MODE_WATERFALL:
+      rainbow_waterfall();
+      break;
+    case MODE_OFF:
+      strip_off();
+      break;
     default: //wat
       seppuku();
       break;
@@ -192,7 +307,7 @@ void loop() {
   strip.show();
 
   // Pauses to slow the motion effect of the color changing
-  delay(DELAY_MS);
+  delay(delay_ms);
 
 }
 
