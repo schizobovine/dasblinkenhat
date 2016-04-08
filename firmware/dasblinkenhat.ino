@@ -1,25 +1,26 @@
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 
-const byte DATA_PIN = 1;
-const byte BUTT_PIN = 2;
-const byte TRIM_PIN = A3;
+#define DATA_PIN 1
+#define BUTT_PIN 2
+#define TRIM_PIN A3
 
-const int BUTT_DEBOUNCE_MS = 50; 
+#define BUTT_DEBOUNCE_MS 50
+
 Bounce butt;
 
-const uint8_t NUM_PIXELS = 100;         //max=103
-const uint8_t DEFAULT_BRIGHTNESS = 255; //0-255
-const uint16_t DEFAULT_DELAY_MS = 5;    //milliseconds
+#define NUM_PIXELS 90          //max=103 (nope, <100 now)
+#define DEFAULT_BRIGHTNESS 255 //0-255
+#define DELAY_MS 5             //how long to pause between loops
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_PIXELS, DATA_PIN, NEO_GRB + NEO_KHZ800);
 uint8_t offset = 0;
 uint8_t bright = DEFAULT_BRIGHTNESS;
-uint16_t delay_ms = DEFAULT_DELAY_MS;
 
 typedef enum {
   MODE_CYCLE,
   MODE_PULSE,
+  MODE_WATERFALL,
 } mode_t;
 
 mode_t mode = MODE_CYCLE;
@@ -70,6 +71,27 @@ void rainbow_pulse() {
     set_pixel_color(i, offset);
   }
   offset++;
+}
+
+//
+// Maps 0-255 range to a cycling rainbow starting at midpoint of strand,
+// mirrored on both halves to create a waterfall-like effect
+//
+void rainbow_waterfall() {
+
+  // Handle odd number of pixels
+  if (NUM_PIXELS % 2 == 1) {
+    set_pixel_color(NUM_PIXELS/2+1, offset - 1);
+  }
+
+  // Handle even/rest of pixels
+  for (uint16_t i=0; i<NUM_PIXELS/2; i++) {
+    set_pixel_color(NUM_PIXELS/2 + i, offset + i);
+    set_pixel_color(NUM_PIXELS/2 - i, offset + i);
+  }
+
+  offset++;
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -135,6 +157,9 @@ void loop() {
         mode = MODE_PULSE;
         break;
       case MODE_PULSE:
+        mode = MODE_WATERFALL;
+        break;
+      case MODE_WATERFALL:
         mode = MODE_CYCLE;
         break;
       default: //wat
@@ -167,7 +192,7 @@ void loop() {
   strip.show();
 
   // Pauses to slow the motion effect of the color changing
-  delay(delay_ms);
+  delay(DELAY_MS);
 
 }
 
