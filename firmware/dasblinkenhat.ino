@@ -111,18 +111,23 @@ void rainbow_pulse() {
 // mirrored on both halves to create a waterfall-like effect
 //
 void rainbow_waterfall() {
+  uint16_t i = 0;
 
-  // Handle odd number of pixels
+  // Set colors from both front & back of array, eventually meeting in the
+  // middle (or not, if there's an odd number of elements--that case is handled
+  // below), using the location to further offset the color for each pixel.
+  for (i=0; i<NUM_PIXELS/2; i++) {
+    set_pixel_color(i, offset + i);
+    set_pixel_color(NUM_PIXELS - 1 - i, offset + i);
+  }
+
+  // Handle odd number of pixels; re-use last value of from loop to get next
+  // color in sequence
   if (NUM_PIXELS % 2 == 1) {
-    set_pixel_color(NUM_PIXELS/2+1, offset - 1);
+    set_pixel_color(i, offset + i);
   }
 
-  // Handle even/rest of pixels
-  for (uint16_t i=0; i<NUM_PIXELS/2; i++) {
-    set_pixel_color(NUM_PIXELS/2 + i, offset + i);
-    set_pixel_color(NUM_PIXELS/2 - i, offset + i);
-  }
-
+  // Increment offset to create flowing effect
   offset++;
 
 }
