@@ -10,7 +10,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 
-#define DEBUG 0
+#define DEBUG 1
 #define SERIAL_BAUD 9600
 
 #ifdef DEBUG
@@ -21,10 +21,10 @@
 #define DPRINTLN(...)
 #endif
 
-#define BUTT_PIN 5
-#define DATA_PIN 6
-#define BRIGHT_TRIM_PIN A4
-#define DELAY_TRIM_PIN A5
+#define BUTT_PIN 6
+#define DATA_PIN 5
+#define BRIGHT_TRIM_PIN A5
+#define DELAY_TRIM_PIN A3
 #define BATT_DIV_PIN 9
 
 #define BUTT_DEBOUNCE_MS 50
