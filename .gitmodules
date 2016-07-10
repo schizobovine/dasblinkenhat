@@ -7,3 +7,6 @@
 [submodule "firmware/lib/Bounce2"]
 	path = firmware/lib/Bounce2
 	url = git@github.com:schizobovine/Bounce2.git
+[submodule "firmware/lib/Adafruit_BluefruitLE_nRF51"]
+	path = firmware/lib/Adafruit_BluefruitLE_nRF51
+	url = git@github.com:schizobovine/Adafruit_BluefruitLE_nRF51.git
