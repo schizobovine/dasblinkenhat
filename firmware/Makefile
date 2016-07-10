@@ -1,5 +1,5 @@
 ARDUINO_DIR					= $(realpath $(HOME)/arduino/arduino-current)
-ARDUINO_LIBS				:= Adafruit_NeoPixel Bounce2
+ARDUINO_LIBS				:= Adafruit_BluefruitLE_nRF51 Adafruit_NeoPixel Bounce2 SPI SoftwareSerial
 USER_LIB_PATH				:= $(realpath ./lib)
 
 ARDUINO_PORT				:= /dev/ttyACM0
