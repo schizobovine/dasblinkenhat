@@ -7,11 +7,14 @@
  */
 
 #include <Arduino.h>
+#include <SPI.h>
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_BLE.h>
+#include <Adafruit_BluefruitLE_SPI.h>
 #include <Bounce2.h>
 
-#define DEBUG 1
-#define SERIAL_BAUD 9600
+#define DEBUG 0
+#define SERIAL_BAUD 115200
 
 #ifdef DEBUG
 #define DPRINT(...) Serial.print(__VA_ARGS__)
@@ -21,30 +24,29 @@
 #define DPRINTLN(...)
 #endif
 
-#define BUTT_PIN 6
-#define DATA_PIN 5
-#define BRIGHT_TRIM_PIN A5
-#define DELAY_TRIM_PIN A3
-#define BATT_DIV_PIN 9
-
-#define BUTT_DEBOUNCE_MS 50
-
-Bounce butt;
-
 #define NUM_PIXELS 120         //max=103 (nope, <100 now)
 #define DEFAULT_BRIGHTNESS 255 //0-255
+#define DELAY_MS    50
+#define DEBOUNCE_MS 50
 
-#define DELAY_MIN 5
-#define DELAY_MAX 50
-#define DELAY_DEFAULT DELAY_MAX
+#define BLE_CS          8
+#define BLE_IRQ         7
+#define BLE_RST         4
+#define BUTT_MODE_PIN   11
+#define BUTT_SLEEP_PIN  12
+#define DATA_PIN        5
+#define POWER_PIN       6
+#define BRIGHT_TRIM_PIN A5
+#define BATT_DIV_PIN    9
+
+Bounce butt_sleep;
+Bounce butt_mode;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_PIXELS, DATA_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_BluefruitLE_SPI modem(BLE_CS, BLE_IRQ, BLE_RST);
 
 uint8_t offset = 0;
 uint8_t bright = DEFAULT_BRIGHTNESS;
-
-uint16_t delay_ms = DELAY_DEFAULT;
-uint16_t last_delay_ms = DELAY_DEFAULT;
 
 uint16_t battery_level = 0;
 uint16_t last_battery_level = 0;
@@ -198,30 +200,25 @@ uint8_t get_brightness_trim() {
   return map(reading, 0, 1023, 0, 255);
 }
 
-//
-// Get cycle delay time based on delay trimmer setting
-//
-uint16_t get_delay_trim() {
-  uint16_t reading = analogRead(DELAY_TRIM_PIN);
-  return map(reading, 0, 1023, DELAY_MIN, DELAY_MAX);
-}
-
 ////////////////////////////////////////////////////////////////////////
 // SETUP - done once
 ////////////////////////////////////////////////////////////////////////
 
 void setup() {
 
-  butt.attach(BUTT_PIN, INPUT_PULLUP, BUTT_DEBOUNCE_MS);
+  butt_sleep.attach(BUTT_SLEEP_PIN, INPUT_PULLUP, DEBOUNCE_MS);
+  butt_mode.attach(BUTT_MODE_PIN, INPUT_PULLUP, DEBOUNCE_MS);
 
   strip.begin();
   strip.show();
+
+  //modem.begin(false);
 
 #if DEBUG
   Serial.begin(SERIAL_BAUD);
   while (!Serial)
     ;
-  Serial.println("HAI");
+  Serial.println(F("HAI"));
   pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 #endif
@@ -235,7 +232,7 @@ void setup() {
 void loop() {
 
   // Check button state for mode change
-  if (butt.update() && butt.fell()) {
+  if (butt_mode.update() && butt_mode.fell()) {
 
     // Advance to the next mode
     DPRINT(F("Mode switch to "));
@@ -271,14 +268,6 @@ void loop() {
     DPRINTLN(bright);
   }
 
-  // Check delay setting & (re)set if needed
-  delay_ms = get_delay_trim();
-  if (delay_ms != last_delay_ms) {
-    last_delay_ms = delay_ms;
-    DPRINT(F("Set delay to "));
-    DPRINTLN(delay_ms);
-  }
-
   // Check battery level
   battery_level = get_batt_level();
   if (battery_level != last_battery_level) {
@@ -312,7 +301,7 @@ void loop() {
   strip.show();
 
   // Pauses to slow the motion effect of the color changing
-  delay(delay_ms);
+  delay(DELAY_MS);
 
 }
 
