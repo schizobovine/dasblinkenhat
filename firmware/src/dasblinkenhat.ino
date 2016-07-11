@@ -14,7 +14,7 @@
 #include <Bounce2.h>
 
 #define DEBUG 0
-#define SERIAL_BAUD 115200
+#define SERIAL_BAUD 9600
 
 #ifdef DEBUG
 #define DPRINT(...) Serial.print(__VA_ARGS__)
@@ -135,12 +135,23 @@ void rainbow_waterfall() {
 }
 
 //
+// Turns entire strip on
+//
+void strip_on() {
+  digitalWrite(POWER_PIN, LOW);
+  delay(10);
+  strip.begin();
+  strip.show();
+}
+
+//
 // Turns entire strip off
 //
 void strip_off() {
   for (uint16_t i=0; i<NUM_PIXELS; i++) {
     strip.setPixelColor(i, 0, 0, 0);
   }
+  digitalWrite(POWER_PIN, HIGH);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -209,17 +220,24 @@ void setup() {
   butt_sleep.attach(BUTT_SLEEP_PIN, INPUT_PULLUP, DEBOUNCE_MS);
   butt_mode.attach(BUTT_MODE_PIN, INPUT_PULLUP, DEBOUNCE_MS);
 
-  strip.begin();
-  strip.show();
 
+  // Pin function setup & initial state(s)
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(BRIGHT_TRIM_PIN, INPUT);
+  pinMode(BATT_DIV_PIN, INPUT);
+  pinMode(POWER_PIN, OUTPUT);
+
+  strip_on();
   //modem.begin(false);
 
 #if DEBUG
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
+  delay(500);
   Serial.begin(SERIAL_BAUD);
   while (!Serial)
     ;
   Serial.println(F("HAI"));
-  pinMode(13, OUTPUT);
   digitalWrite(13, HIGH);
 #endif
 
@@ -231,8 +249,9 @@ void setup() {
 
 void loop() {
 
-  // Check button state for mode change
-  if (butt_mode.update() && butt_mode.fell()) {
+  // Check button state for mode change & advance to next mode if so
+  butt_mode.update();
+  if (butt_mode.fell()) {
 
     // Advance to the next mode
     DPRINT(F("Mode switch to "));
@@ -281,6 +300,7 @@ void loop() {
   // Dispatch color setting by mode
   switch (mode) {
     case MODE_CYCLE:
+      strip_on();
       rainbow_cycle();
       break;
     case MODE_PULSE:
