@@ -7,10 +7,7 @@
  */
 
 #include <Arduino.h>
-#include <SPI.h>
 #include <Adafruit_NeoPixel.h>
-#include <Adafruit_BLE.h>
-#include <Adafruit_BluefruitLE_SPI.h>
 #include <Bounce2.h>
 
 #define DEBUG 0
@@ -26,24 +23,19 @@
 
 #define NUM_PIXELS 120         //max=103 (nope, <100 now)
 #define DEFAULT_BRIGHTNESS 255 //0-255
-#define DELAY_MS    50
+#define DELAY_MS    25
 #define DEBOUNCE_MS 50
 
-#define BLE_CS          8
-#define BLE_IRQ         7
-#define BLE_RST         4
 #define BUTT_MODE_PIN   11
 #define BUTT_SLEEP_PIN  12
-#define DATA_PIN        5
+#define DATA_PIN        10
 #define POWER_PIN       6
 #define BRIGHT_TRIM_PIN A5
-#define BATT_DIV_PIN    9
 
 Bounce butt_sleep;
 Bounce butt_mode;
 
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(NUM_PIXELS, DATA_PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_BluefruitLE_SPI modem(BLE_CS, BLE_IRQ, BLE_RST);
 
 uint8_t offset = 0;
 uint8_t bright = DEFAULT_BRIGHTNESS;
@@ -184,24 +176,8 @@ void seppuku(uint8_t error_code=0) {
 }
 
 ////////////////////////////////////////////////////////////////////////
-// ANALOG HELPERS
+// ANALOG HELPER
 ////////////////////////////////////////////////////////////////////////
-
-//
-// Get battery level (0-1023 through voltage divider)
-//
-uint16_t get_batt_level() {
-  uint16_t reading = analogRead(BATT_DIV_PIN);
-  return reading;
-  //return reading * 2.0 * 3.3 / 1024;
-}
-
-//
-// Get battery voltage
-//
-float get_batt_voltage(uint16_t level) {
-  return level * 2.0 * 3.3 / 1024;
-}
 
 //
 // Get brightness level from brightness trimmer setting
@@ -224,7 +200,6 @@ void setup() {
   // Pin function setup & initial state(s)
   pinMode(DATA_PIN, OUTPUT);
   pinMode(BRIGHT_TRIM_PIN, INPUT);
-  pinMode(BATT_DIV_PIN, INPUT);
   pinMode(POWER_PIN, OUTPUT);
 
   strip_on();
@@ -251,7 +226,8 @@ void loop() {
 
   // Check button state for mode change & advance to next mode if so
   butt_mode.update();
-  if (butt_mode.fell()) {
+  butt_sleep.update();
+  if (butt_mode.fell() || butt_sleep.fell()) {
 
     // Advance to the next mode
     DPRINT(F("Mode switch to "));
@@ -285,16 +261,6 @@ void loop() {
     strip.setBrightness(bright);
     DPRINT(F("Set brightness to "));
     DPRINTLN(bright);
-  }
-
-  // Check battery level
-  battery_level = get_batt_level();
-  if (battery_level != last_battery_level) {
-    last_battery_level = battery_level;
-    DPRINT(F("Battery level is "));
-    DPRINT(battery_level);
-    DPRINT(F(" "));
-    DPRINTLN(get_batt_voltage(battery_level));
   }
 
   // Dispatch color setting by mode
